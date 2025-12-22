@@ -93,6 +93,14 @@ message Event {
 }
 ```
 
+**Note**: The schema file is duplicated in each module (protocol, spark-streaming, and flink-streaming) 
+because each module uses different build systems and code generation tools:
+- Protocol module uses SBT with ScalaPB for Scala code generation
+- Spark and Flink modules use Maven with protobuf-maven-plugin for Java code generation
+
+This approach ensures each module can independently generate and test its Protobuf bindings 
+without cross-module dependencies, which is important for microservices architectures.
+
 ## Testing
 
 All modules include comprehensive tests:
