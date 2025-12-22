@@ -13,7 +13,7 @@ The project consists of three modules:
 
 ## Prerequisites
 
-- Java 11 or higher
+- Java 17
 - SBT 1.9.7 (for protocol module)
 - Maven 3.6+ (for Spark and Flink modules)
 - Kafka cluster (for running the streaming applications)
