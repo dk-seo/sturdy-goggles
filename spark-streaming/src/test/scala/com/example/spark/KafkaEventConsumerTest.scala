@@ -43,6 +43,7 @@ class KafkaEventConsumerTest extends AnyFlatSpec with Matchers {
       val row = result.head
       val eventRow = row.getStruct(0)
       
+      // Tuple field indices: 0=id, 1=name, 2=timestamp, 3=data
       eventRow.getAs[String](0) shouldBe "test-123"
       eventRow.getAs[String](1) shouldBe "TestEvent"
       eventRow.getAs[Long](2) shouldBe event.getTimestamp
@@ -73,6 +74,7 @@ class KafkaEventConsumerTest extends AnyFlatSpec with Matchers {
       val row = result.head
       val eventRow = row.getStruct(0)
       
+      // Tuple field indices: 0=id, 1=name, 2=timestamp, 3=data
       eventRow.getAs[String](0) shouldBe ""
       eventRow.getAs[String](1) shouldBe ""
       eventRow.getAs[Long](2) shouldBe 0L
@@ -111,6 +113,7 @@ class KafkaEventConsumerTest extends AnyFlatSpec with Matchers {
 
       results should have length 5
 
+      // Tuple field indices: 0=id, 1=name, 2=timestamp, 3=data
       results.zipWithIndex.foreach { case (row, idx) =>
         val i = idx + 1
         val eventRow = row.getStruct(0)

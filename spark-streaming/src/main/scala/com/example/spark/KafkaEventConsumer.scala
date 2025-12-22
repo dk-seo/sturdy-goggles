@@ -48,6 +48,7 @@ object KafkaEventConsumer {
   }
 
   // UDF to deserialize Protobuf Event
+  // Returns tuple: (id: String, name: String, timestamp: Long, data: String)
   val deserializeEvent = udf((bytes: Array[Byte]) => {
     if (bytes != null) {
       val event = Event.parseFrom(bytes)

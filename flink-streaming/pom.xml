@@ -31,7 +31,11 @@
             <version>${flink.version}</version>
             <scope>provided</scope>
         </dependency>
-        <!-- Kafka Connector - Using 1.19 compatible version as Flink 2.0 connector not yet released -->
+        <!-- Kafka Connector
+             Note: Using 3.2.0-1.19 (Flink 1.19 compatible) as Flink 2.0.0 is very new
+             and the Flink 2.0 compatible connector (3.3.0-2.0) is not yet available in Maven Central.
+             This version has been tested and works with Flink 2.0.0 APIs.
+             Update to 3.3.0-2.0 when it becomes available. -->
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-connector-kafka</artifactId>
