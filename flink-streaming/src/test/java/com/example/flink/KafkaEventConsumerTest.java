@@ -102,4 +102,16 @@ public class KafkaEventConsumerTest {
             assertEquals("data-" + i, deserializedEvent.getData());
         }
     }
+
+    @Test(expected = IOException.class)
+    public void testMalformedProtobufData() throws IOException {
+        // Create malformed data (random bytes that aren't valid Protobuf)
+        byte[] malformedBytes = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+        KafkaEventConsumer.EventDeserializationSchema schema =
+                new KafkaEventConsumer.EventDeserializationSchema();
+        
+        // This should throw IOException due to invalid Protobuf data
+        schema.deserialize(malformedBytes);
+    }
 }

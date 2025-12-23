@@ -16,10 +16,21 @@ public class KafkaEventConsumer {
         // Set up the streaming execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
+        // Configuration from environment variables with defaults
+        String bootstrapServers = System.getenv("KAFKA_BOOTSTRAP_SERVERS");
+        if (bootstrapServers == null || bootstrapServers.isEmpty()) {
+            bootstrapServers = "localhost:9092";
+        }
+
+        String topic = System.getenv("KAFKA_TOPIC");
+        if (topic == null || topic.isEmpty()) {
+            topic = "events";
+        }
+
         // Configure Kafka source
         KafkaSource<Event> source = KafkaSource.<Event>builder()
-                .setBootstrapServers("localhost:9092")
-                .setTopics("events")
+                .setBootstrapServers(bootstrapServers)
+                .setTopics(topic)
                 .setStartingOffsets(OffsetsInitializer.earliest())
                 .setValueOnlyDeserializer(new EventDeserializationSchema())
                 .build();
@@ -53,7 +64,13 @@ public class KafkaEventConsumer {
 
         @Override
         public Event deserialize(byte[] message) throws IOException {
-            return Event.parseFrom(message);
+            try {
+                return Event.parseFrom(message);
+            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+                // Log error and throw IOException to let Flink handle it
+                System.err.println("Failed to deserialize Protobuf message: " + e.getMessage());
+                throw new IOException("Invalid Protobuf message", e);
+            }
         }
     }
 }

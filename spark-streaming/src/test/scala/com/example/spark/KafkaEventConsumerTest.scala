@@ -5,12 +5,13 @@ import org.scalatest.matchers.should.Matchers
 import com.example.protocol.EventProto.Event
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
+import java.util.UUID
 
 class KafkaEventConsumerTest extends AnyFlatSpec with Matchers {
 
   "Event deserialization" should "correctly parse Protobuf messages" in {
     val spark = SparkSession.builder()
-      .appName("TestApp")
+      .appName(s"TestApp-${UUID.randomUUID()}")
       .master("local[*]")
       .getOrCreate()
 
@@ -55,7 +56,7 @@ class KafkaEventConsumerTest extends AnyFlatSpec with Matchers {
 
   it should "handle null bytes gracefully" in {
     val spark = SparkSession.builder()
-      .appName("TestApp")
+      .appName(s"TestApp-${UUID.randomUUID()}")
       .master("local[*]")
       .getOrCreate()
 
@@ -72,13 +73,9 @@ class KafkaEventConsumerTest extends AnyFlatSpec with Matchers {
 
       result should have length 1
       val row = result.head
-      val eventRow = row.getStruct(0)
       
-      // Tuple field indices: 0=id, 1=name, 2=timestamp, 3=data
-      eventRow.getAs[String](0) shouldBe ""
-      eventRow.getAs[String](1) shouldBe ""
-      eventRow.getAs[Long](2) shouldBe 0L
-      eventRow.getAs[String](3) shouldBe ""
+      // Null bytes should result in null event
+      row.isNullAt(0) shouldBe true
     } finally {
       spark.stop()
     }
@@ -86,7 +83,7 @@ class KafkaEventConsumerTest extends AnyFlatSpec with Matchers {
 
   it should "deserialize multiple events" in {
     val spark = SparkSession.builder()
-      .appName("TestApp")
+      .appName(s"TestApp-${UUID.randomUUID()}")
       .master("local[*]")
       .getOrCreate()
 
@@ -122,6 +119,36 @@ class KafkaEventConsumerTest extends AnyFlatSpec with Matchers {
         eventRow.getAs[Long](2) shouldBe i.toLong
         eventRow.getAs[String](3) shouldBe s"data-$i"
       }
+    } finally {
+      spark.stop()
+    }
+  }
+
+  it should "handle malformed Protobuf data" in {
+    val spark = SparkSession.builder()
+      .appName(s"TestApp-${UUID.randomUUID()}")
+      .master("local[*]")
+      .getOrCreate()
+
+    try {
+      import spark.implicits._
+
+      // Create malformed data (random bytes that aren't valid Protobuf)
+      val malformedBytes = Array[Byte](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+
+      val df = Seq(malformedBytes).toDF("value")
+
+      val deserializedDF = df.select(
+        KafkaEventConsumer.deserializeEvent(col("value")).as("event")
+      )
+
+      val result = deserializedDF.collect()
+
+      result should have length 1
+      val row = result.head
+      
+      // Malformed data should result in null event
+      row.isNullAt(0) shouldBe true
     } finally {
       spark.stop()
     }

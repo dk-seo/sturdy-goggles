@@ -14,11 +14,15 @@ object KafkaEventConsumer {
 
     import spark.implicits._
 
+    // Configuration from environment variables with defaults
+    val bootstrapServers = sys.env.getOrElse("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+    val topic = sys.env.getOrElse("KAFKA_TOPIC", "events")
+
     // Read from Kafka
     val kafkaDF = spark.readStream
       .format("kafka")
-      .option("kafka.bootstrap.servers", "localhost:9092")
-      .option("subscribe", "events")
+      .option("kafka.bootstrap.servers", bootstrapServers)
+      .option("subscribe", topic)
       .option("startingOffsets", "earliest")
       .load()
 
@@ -51,10 +55,17 @@ object KafkaEventConsumer {
   // Returns tuple: (id: String, name: String, timestamp: Long, data: String)
   val deserializeEvent = udf((bytes: Array[Byte]) => {
     if (bytes != null) {
-      val event = Event.parseFrom(bytes)
-      (event.getId, event.getName, event.getTimestamp, event.getData)
+      try {
+        val event = Event.parseFrom(bytes)
+        (event.getId, event.getName, event.getTimestamp, event.getData)
+      } catch {
+        case e: com.google.protobuf.InvalidProtocolBufferException =>
+          // Log error and return null to indicate deserialization failure
+          System.err.println(s"Failed to deserialize Protobuf message: ${e.getMessage}")
+          null
+      }
     } else {
-      ("", "", 0L, "")
+      null
     }
   })
 }
