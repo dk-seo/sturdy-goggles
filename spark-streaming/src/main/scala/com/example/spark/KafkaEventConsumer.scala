@@ -4,8 +4,11 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.Trigger
 import com.example.protocol.EventProto.Event
+import org.slf4j.LoggerFactory
 
 object KafkaEventConsumer {
+
+  private val logger = LoggerFactory.getLogger(getClass)
 
   def main(args: Array[String]): Unit = {
     val spark = SparkSession.builder()
@@ -53,6 +56,7 @@ object KafkaEventConsumer {
 
   // UDF to deserialize Protobuf Event
   // Returns tuple: (id: String, name: String, timestamp: Long, data: String)
+  // Returns null on deserialization failure to allow pipeline to continue processing valid messages
   val deserializeEvent = udf((bytes: Array[Byte]) => {
     if (bytes != null) {
       try {
@@ -61,7 +65,7 @@ object KafkaEventConsumer {
       } catch {
         case e: com.google.protobuf.InvalidProtocolBufferException =>
           // Log error and return null to indicate deserialization failure
-          System.err.println(s"Failed to deserialize Protobuf message: ${e.getMessage}")
+          logger.error(s"Failed to deserialize Protobuf message: ${e.getMessage}", e)
           null
       }
     } else {

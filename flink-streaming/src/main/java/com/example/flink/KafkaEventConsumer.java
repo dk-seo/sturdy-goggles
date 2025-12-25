@@ -7,10 +7,14 @@ import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsIni
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import com.example.protocol.EventProto.Event;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
 public class KafkaEventConsumer {
+
+    private static final Logger logger = LoggerFactory.getLogger(KafkaEventConsumer.class);
 
     public static void main(String[] args) throws Exception {
         // Set up the streaming execution environment
@@ -59,6 +63,7 @@ public class KafkaEventConsumer {
 
     /**
      * Deserialization schema for Protobuf Event messages
+     * Throws IOException on deserialization failure, causing Flink to handle per configured strategy
      */
     public static class EventDeserializationSchema extends AbstractDeserializationSchema<Event> {
 
@@ -68,7 +73,7 @@ public class KafkaEventConsumer {
                 return Event.parseFrom(message);
             } catch (com.google.protobuf.InvalidProtocolBufferException e) {
                 // Log error and throw IOException to let Flink handle it
-                System.err.println("Failed to deserialize Protobuf message: " + e.getMessage());
+                logger.error("Failed to deserialize Protobuf message: {}", e.getMessage(), e);
                 throw new IOException("Invalid Protobuf message", e);
             }
         }

@@ -26,12 +26,14 @@ The project consists of three modules:
 cd protocol
 sbt compile
 sbt test
+sbt publishM2  # Publish to local Maven repository for use by other modules
 ```
 
 This will:
 - Compile the Protobuf schema
-- Generate Java and Scala classes
+- Generate both Java and Scala classes
 - Run round-trip serialization tests
+- Publish the JAR to local Maven repository
 
 ### Spark Streaming Module (Maven)
 
@@ -42,7 +44,7 @@ mvn test
 ```
 
 This will:
-- Generate Java classes from Protobuf schema
+- Use Protobuf classes from the protocol module dependency
 - Compile the Spark streaming application
 - Run tests for Kafka message deserialization
 
@@ -55,7 +57,7 @@ mvn test
 ```
 
 This will:
-- Generate Java classes from Protobuf schema
+- Use Protobuf classes from the protocol module dependency
 - Compile the Flink streaming application
 - Run tests for Kafka message deserialization
 
@@ -82,7 +84,7 @@ flink run target/flink-streaming-1.0-SNAPSHOT.jar
 
 ## Protobuf Schema
 
-The shared schema is defined in `protocol/src/main/protobuf/event.proto`:
+The shared schema is defined in `protocol/src/main/proto/event.proto`:
 
 ```protobuf
 message Event {
@@ -93,13 +95,31 @@ message Event {
 }
 ```
 
-**Note**: The schema file is duplicated in each module (protocol, spark-streaming, and flink-streaming) 
-because each module uses different build systems and code generation tools:
-- Protocol module uses SBT with ScalaPB for Scala code generation
-- Spark and Flink modules use Maven with protobuf-maven-plugin for Java code generation
+**Architecture**: The protocol module serves as the single source of truth for all Protobuf definitions:
+- The protocol module generates both Java and Scala classes from the proto files
+- Spark and Flink modules depend on the protocol module's published JAR
+- This eliminates schema duplication and ensures consistency across all modules
+- The protocol module publishes to local Maven/Ivy repositories for use by other modules
 
-This approach ensures each module can independently generate and test its Protobuf bindings 
-without cross-module dependencies, which is important for microservices architectures.
+All modules use the standard `src/main/proto` directory for consistency.
+
+## Error Handling Strategy
+
+The Spark and Flink modules use different error handling strategies for malformed Protobuf data:
+
+### Spark Strategy: Continue Processing
+- **Behavior**: Returns `null` when deserialization fails
+- **Impact**: Pipeline continues processing, skipping malformed messages
+- **Use case**: Best when data quality issues are expected and losing some messages is acceptable
+- **Logging**: Errors logged via SLF4J at ERROR level
+
+### Flink Strategy: Fail Fast
+- **Behavior**: Throws `IOException` when deserialization fails
+- **Impact**: Job will fail or restart based on Flink's configured restart strategy
+- **Use case**: Best when data integrity is critical and corruption should halt processing
+- **Logging**: Errors logged via SLF4J at ERROR level
+
+This intentional difference allows each framework to handle failures according to its operational model. Choose the approach that best fits your requirements for data quality vs. availability.
 
 ## Testing
 
@@ -124,10 +144,14 @@ cd flink-streaming && mvn test
 
 ## Kafka Configuration
 
-Both streaming applications expect:
-- Kafka brokers at `localhost:9092`
-- Topic name: `events`
-- Messages serialized as Protobuf `Event` objects
+Both streaming applications support configuration via environment variables:
+
+### Environment Variables
+- `KAFKA_BOOTSTRAP_SERVERS`: Kafka broker addresses (default: `localhost:9092`)
+- `KAFKA_TOPIC`: Topic name to consume from (default: `events`)
+
+### Message Format
+Messages should be serialized as Protobuf `Event` objects using the shared schema.
 
 ## License
 
